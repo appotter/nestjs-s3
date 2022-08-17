@@ -1,6 +1,6 @@
 {
-  "name": "nestjs-s3",
-  "version": "1.0.0",
+  "name": "@appotter/nestjs-s3",
+  "version": "0.0.0",
   "description": "NestJS provider to integrates with AWS S3",
   "author": "Phitsanu Chuamuangphan <ap.phitsanu@gmail.com, contact@phitsanu.ch>",
   "license": "MIT",
@@ -14,6 +14,10 @@
     "build": "rimraf ./dist && tsc -p tsconfig.json",
     "test": "jest"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/appotter/nestjs-s3.git"
+  },
   "keywords": [
     "nestjs",
     "aws-s3",
@@ -21,6 +25,12 @@
     "file-storage",
     "nodejs"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "bugs": {
+    "url": "https://github.com/appotter/nestjs-s3/issues"
+  },
   "dependencies": {
     "@nestjs/common": "^8.4.7",
     "aws-sdk": "^2.1195.0",

@@ -19,7 +19,7 @@ This is a simple wrapper of [Aws S3](https://github.com/aws/aws-sdk-js) client l
 ### Installation
 
 ```bash
-npm install --save nestjs-s3 aws-sdk
+npm install --save @appotter/nestjs-s3 aws-sdk
 ```
 
 ### Usage
@@ -27,7 +27,7 @@ npm install --save nestjs-s3 aws-sdk
 #### Importing module
 
 ```typescript
-import { S3Module, S3Service } from 'nestjs-s3';
+import { S3Module, S3Service } from '@appotter/nestjs-s3';
 
 @Module({
   imports: [
@@ -48,7 +48,7 @@ export class S3ProviderModule {}
 #### Importing module Async
 
 ```typescript
-import { S3Module, S3Service } from 'nestjs-S3';
+import { S3Module, S3Service } from '@appotter/nestjs-S3';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
@@ -73,7 +73,7 @@ export class S3ProviderModule {}
 #### Calling Method
 
 ```typescript
-import { S3Service, S3ModuleUploadedFile } from 'nestjs-S3';
+import { S3Service, S3ModuleUploadedFile } from '@appotter/nestjs-S3';
 import { PutObjectRequest, ObjectKey } from 'aws-sdk/clients/s3';
 
 @Injectable()
