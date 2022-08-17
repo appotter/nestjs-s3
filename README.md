@@ -101,14 +101,32 @@ export class YourService {
     const items = await this.s3Service.lists();
 
     console.log(items);
-    // [{ key: 'file.png', size: 123, lastModified: 2022-08-08T07:28:40.000Z, bucket: 'test' }, { key: 'file2.png', size: 456, lastModified: 2022-08-08T07:45:46.000Z, bucket: 'test' }]
+    // [
+    //   {
+    //     key: 'file.png',
+    //     size: 123,
+    //     lastModified: 2022-08-08T07:28:40.000Z,
+    //     bucket: 'test',
+    //   },
+    //   {
+    //     key: 'file2.png',
+    //     size: 456,
+    //     lastModified: 2022-08-08T07:45:46.000Z,
+    //     bucket: 'test',
+    //   },
+    // ]
   }
 
   async getFile(file: ObjectKey): Promise<void> {
     const item = await this.s3Service.get(file);
 
     console.log(item);
-    // { key: 'file.jpg', contentLength: 123, contentType: 'application/octet-stream', body: <Buffer ff d8 ff e0 00 10 4a 46 49 46 00 01 01 00 00 48 00 48 00 00 ff e1 00 8c 45 78 69 66 00 00 4d 4d 00 2a 00 00 00 08 00 05 01 12 00 03 00 00 00 01 00 01 ... 74938 more bytes> }
+    // {
+    //   key: 'file.jpg',
+    //   contentLength: 123,
+    //   contentType: 'application/octet-stream',
+    //   body: '<Buffer ff d8 ff e0 00 ... 74938 more bytes>',
+    // }
   }
 
   async storeWithBaseS3Client(file: S3ModuleUploadedFile) {
