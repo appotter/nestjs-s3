@@ -1,3 +1,5 @@
+import { UploadedFile } from "./interfaces";
+
 export const trimLastSlash = (str: string | undefined): string => {
   if (typeof str === 'undefined') {
     return '';
@@ -8,13 +10,13 @@ export const trimLastSlash = (str: string | undefined): string => {
     : str;
 };
 
-export const getFileName = (file: Express.Multer.File): string => {
+export const getFileName = (file: UploadedFile): string => {
   const index = file.originalname.lastIndexOf('.');
 
   return file.originalname.slice(0, index);
 };
 
-export const getFileExtension = (file: Express.Multer.File): string => {
+export const getFileExtension = (file: UploadedFile): string => {
   const index = file.originalname.lastIndexOf('.');
 
   return file.originalname.slice(index + 1);

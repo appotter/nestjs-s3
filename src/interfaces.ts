@@ -1,12 +1,12 @@
 import { FactoryProvider, ModuleMetadata } from '@nestjs/common';
-import S3, { Body, ManagedUpload } from 'aws-sdk/clients/s3';
+import S3, { Body, ManagedUpload, ObjectCannedACL } from 'aws-sdk/clients/s3';
 
 export type Options = {
   accessKeyId: string;
   secretAccessKey: string;
   region: string;
   bucket: string;
-  acl?: string;
+  acl?: ObjectCannedACL;
 };
 export type OptionsAsync = {
   useFactory: (...args: any[]) => Options | Promise<Options>;
@@ -27,11 +27,11 @@ export type Item = {
   size: number;
   lastModified: Date;
   bucket: string;
-}
+};
 export type ListedResponse = Item[];
 export type GotResponse = {
-  key: string,
-  contentLength: number,
-  contentType: string,
-  body: Body,
+  key: string;
+  contentLength: number;
+  contentType: string;
+  body: Body;
 };
