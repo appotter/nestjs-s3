@@ -28,9 +28,16 @@ export class S3Service {
   private acl: ObjectCannedACL;
 
   constructor(@Inject(S3_CONFIGURATION) private config: Options) {
-    const { accessKeyId, secretAccessKey, region, bucket, acl } = config;
+    const {
+      accessKeyId,
+      secretAccessKey,
+      region,
+      bucket,
+      acl,
+      endpoint = null,
+    } = config;
 
-    this.client = new S3({ accessKeyId, secretAccessKey, region });
+    this.client = new S3({ accessKeyId, secretAccessKey, region, endpoint });
     this.bucket = bucket;
     this.acl = acl ?? 'public-read';
   }

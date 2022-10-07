@@ -7,6 +7,7 @@ export type Options = {
   region: string;
   bucket: string;
   acl?: ObjectCannedACL;
+  endpoint?: string;
 };
 export type OptionsAsync = {
   useFactory: (...args: any[]) => Options | Promise<Options>;
