@@ -1,4 +1,4 @@
-import { UploadedFile } from "./interfaces";
+import { UploadedFile } from './interfaces';
 
 export const trimLastSlash = (str: string | undefined): string => {
   if (typeof str === 'undefined') {
