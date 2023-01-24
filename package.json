@@ -1,6 +1,6 @@
 {
   "name": "@appotter/nestjs-s3",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "NestJS provider to integrates with AWS S3",
   "author": "Phitsanu Chuamuangphan <ap.phitsanu@gmail.com, contact@phitsanu.ch>",
   "license": "MIT",
