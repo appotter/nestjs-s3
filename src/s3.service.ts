@@ -57,6 +57,7 @@ export class S3Service {
       ACL: this.acl,
       Body: file.buffer,
       Key: hasExtension(path) ? path : `${path}/${file.originalname}`,
+      ContentType: file.mimetype,
     };
 
     return await this.upload(objectPayload);
@@ -74,6 +75,7 @@ export class S3Service {
       ACL: this.acl,
       Body: file.buffer,
       Key: folder ? `${folder}/${fileName}` : fileName,
+      ContentType: file.mimetype,
     };
 
     return await this.upload(objectPayload);
@@ -89,8 +91,6 @@ export class S3Service {
         return { url: data.Location, origin: data };
       })
       .catch((error) => {
-        console.log('There was an error uploading your file: ', error.message);
-
         throw error;
       });
   }
@@ -108,8 +108,6 @@ export class S3Service {
         return { status: true, origin: data };
       })
       .catch((error) => {
-        console.log('There was an error deleting your file: ', error.message);
-
         throw error;
       });
   }
@@ -134,8 +132,6 @@ export class S3Service {
         }));
       })
       .catch((error) => {
-        console.log('There was an error gettings your files: ', error.message);
-
         throw error;
       });
   }
@@ -158,8 +154,6 @@ export class S3Service {
         };
       })
       .catch((error) => {
-        console.log('There was an error getting your file: ', error.message);
-
         throw error;
       });
   }

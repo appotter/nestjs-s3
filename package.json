@@ -12,7 +12,8 @@
   ],
   "scripts": {
     "build": "rimraf ./dist && tsc -p tsconfig.json",
-    "test": "jest --detectOpenHandles"
+    "test": "jest --detectOpenHandles",
+    "test:cov": "jest --detectOpenHandles --coverage"
   },
   "repository": {
     "type": "git",
