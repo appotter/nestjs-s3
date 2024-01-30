@@ -19,7 +19,7 @@ This is a simple wrapper of [Aws S3](https://github.com/aws/aws-sdk-js) client l
 ### Installation
 
 ```bash
-npm install --save @appotter/nestjs-s3 aws-sdk
+npm install --save @appotter/nestjs-s3 @aws-sdk/client-s3 @aws-sdk/lib-storage uuid
 ```
 
 ### Usage
@@ -37,6 +37,7 @@ import { S3Module, S3Service } from '@appotter/nestjs-s3';
       region: 'Region',
       bucket: 'Bucket name',
       acl: 'ACL', // optional, default is public-read
+      endpoint: '', // optional
     }),
   ],
   providers: [S3Service],
@@ -74,7 +75,6 @@ export class S3ProviderModule {}
 
 ```typescript
 import { S3Service, S3ModuleUploadedFile } from '@appotter/nestjs-S3';
-import { PutObjectRequest, ObjectKey } from 'aws-sdk/clients/s3';
 
 @Injectable()
 export class YourService {
@@ -89,12 +89,6 @@ export class YourService {
 
     console.log(url);
     // https://bucket-name.s3.region.amazonaws.com/71d07956-26bb-4554-bb37-d00a7865ae29.png
-  }
-
-  async deleteFile(file: ObjectKey): Promise<boolean> {
-    const { status } = await this.s3Service.delete(file);
-
-    return status;
   }
 
   async listAllFiles(): Promise<void> {
@@ -117,7 +111,7 @@ export class YourService {
     // ]
   }
 
-  async getFile(file: ObjectKey): Promise<void> {
+  async getFile(file: string): Promise<void> {
     const item = await this.s3Service.get(file);
 
     console.log(item);
@@ -129,25 +123,10 @@ export class YourService {
     // }
   }
 
-  async storeWithBaseS3Client(file: S3ModuleUploadedFile) {
-    const objectParams: PutObjectRequest = {
-      Bucket: 'custom bucket',
-      Key: 'custom-file-name',
-      Body: file.buffer,
-      ACL: 'private',
-    };
+  async deleteFile(file: string): Promise<boolean> {
+    const { status } = await this.s3Service.delete(file);
 
-    await this.s3Service
-      .getClient()
-      // this method below is from S3 instance (aws-sdk-js/clients/s3)
-      .upload(objectParams)
-      .promise()
-      .then(() => {
-        console.log('Successfully uploaded file.');
-      })
-      .catch((error) => {
-        console.log('There was an error uploading your file: ', error.message);
-      });
+    return status;
   }
 
   // Also available with all S3 instance methods
