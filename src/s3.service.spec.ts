@@ -5,30 +5,21 @@ import { S3_CONFIGURATION } from './constants';
 import { S3Service } from './s3.service';
 import { Options, UploadedFile } from './interfaces';
 import {
-  DeleteObjectOutput,
-  GetObjectOutput,
-  ListObjectsOutput,
-  ManagedUpload,
-} from 'aws-sdk/clients/s3';
+  DeleteObjectCommand,
+  GetObjectCommand,
+  ListObjectsCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { randomUUID } from 'crypto';
+import { mockClient } from 'aws-sdk-client-mock';
+import { Logger } from '@nestjs/common';
+import { Readable } from 'stream';
+import { sdkStreamMixin } from '@smithy/util-stream';
 
 const configService = new ConfigService(dotenv.config());
 
-const fakeS3Instance = {
-  upload: jest.fn().mockReturnThis(),
-  deleteObject: jest.fn().mockReturnThis(),
-  listObjects: jest.fn().mockReturnThis(),
-  getObject: jest.fn().mockReturnThis(),
-  promise: jest.fn(),
-};
-
-jest.mock(
-  'aws-sdk/clients/s3',
-  () =>
-    function () {
-      return fakeS3Instance;
-    },
-);
+const fakeS3Client = mockClient(S3Client);
 
 const mockedFile = {
   fieldname: 'file',
@@ -36,7 +27,7 @@ const mockedFile = {
   encoding: '7bit',
   mimetype: 'image/png',
   buffer: Buffer.from('fake-file.png'),
-  size: 1024,
+  size: 256,
 } as UploadedFile;
 
 describe('S3Service', () => {
@@ -53,6 +44,10 @@ describe('S3Service', () => {
     region = configService.get<string>('S3_REGION');
     bucket = configService.get<string>('S3_BUCKET');
     endpoint = configService.get<string>('S3_ENDPOINT');
+
+    fakeS3Client.reset();
+
+    Logger.error = jest.fn();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -85,13 +80,6 @@ describe('S3Service', () => {
   });
 
   it('should be ok when put a file', async () => {
-    jest.spyOn(fakeS3Instance, 'promise').mockResolvedValue({
-      Location: `https://test.test/${mockedFile.originalname}`,
-      ETag: randomUUID(),
-      Bucket: bucket,
-      Key: mockedFile.originalname,
-    } as ManagedUpload.SendData);
-
     const { url, origin } = await service.put(mockedFile);
 
     expect(url).toBeDefined();
@@ -100,13 +88,6 @@ describe('S3Service', () => {
   });
 
   it('should be ok when put a file with a path that has an extension', async () => {
-    jest.spyOn(fakeS3Instance, 'promise').mockResolvedValue({
-      Location: 'https://test.test/avatars/file.png',
-      ETag: randomUUID(),
-      Bucket: bucket,
-      Key: 'avatars/file.png',
-    } as ManagedUpload.SendData);
-
     const { url, origin } = await service.put(mockedFile, 'avatars/file.png');
 
     expect(url).toBeDefined();
@@ -114,8 +95,16 @@ describe('S3Service', () => {
     expect(origin.Key).toBe('avatars/file.png');
   });
 
+  it('should be ok when put a file with a path that ending with slash', async () => {
+    const { url, origin } = await service.put(mockedFile, 'avatars/');
+
+    expect(url).toBeDefined();
+    expect(origin).toBeDefined();
+    expect(origin.Key).toBe('avatars/file.png');
+  });
+
   it('should throws exception if cannot put a file', async () => {
-    jest.spyOn(fakeS3Instance, 'promise').mockRejectedValue(new Error('cannot put a file'));
+    fakeS3Client.on(PutObjectCommand).rejects(new Error('cannot put a file'));
 
     try {
       await service.put(mockedFile);
@@ -125,32 +114,14 @@ describe('S3Service', () => {
   });
 
   it('put a file as unique name', async () => {
-    const uuid: string = randomUUID();
-
-    jest.spyOn(fakeS3Instance, 'promise').mockResolvedValue({
-      Location: `https://test.test/${uuid}.png`,
-      ETag: uuid,
-      Bucket: bucket,
-      Key: `${uuid}.png`,
-    } as ManagedUpload.SendData);
-
     const { url, origin } = await service.putAsUniqueName(mockedFile);
 
     expect(url).toBeDefined();
     expect(origin).toBeDefined();
-    expect(origin.Key).toBe(`${uuid}.png`);
+    expect(origin.Key).toBeDefined();
   });
 
   it('put a file as unique name with folder', async () => {
-    const uuid: string = randomUUID();
-
-    jest.spyOn(fakeS3Instance, 'promise').mockResolvedValue({
-      Location: `https://test.test/avatars/${uuid}.png`,
-      ETag: uuid,
-      Bucket: bucket,
-      Key: `avatars/${uuid}.png`,
-    } as ManagedUpload.SendData);
-
     const { url, origin } = await service.putAsUniqueName(
       mockedFile,
       'avatars',
@@ -158,35 +129,11 @@ describe('S3Service', () => {
 
     expect(url).toBeDefined();
     expect(origin).toBeDefined();
-    expect(origin.Key).toBe(`avatars/${uuid}.png`);
-  });
-
-  it('delete a file', async () => {
-    jest
-      .spyOn(fakeS3Instance, 'promise')
-      .mockResolvedValue({ DeleteMarker: true } as DeleteObjectOutput);
-
-    const { status, origin } = await service.delete('fake.png');
-
-    expect(status).toBeDefined();
-    expect(status).toBeTruthy();
-    expect(origin).toBeDefined();
-  });
-
-  it('should throws exception if cannot delete a file', async () => {
-    jest
-      .spyOn(fakeS3Instance, 'promise')
-      .mockRejectedValue(new Error('cannot delete a file'));
-
-    try {
-      await service.delete('fake.png');
-    } catch (error) {
-      expect(error.message).toBe('cannot delete a file');
-    }
+    expect(origin.Key).toContain('avatars');
   });
 
   it('list all files', async () => {
-    jest.spyOn(fakeS3Instance, 'promise').mockResolvedValue({
+    fakeS3Client.on(ListObjectsCommand).resolves({
       Name: bucket,
       Contents: [
         {
@@ -200,7 +147,7 @@ describe('S3Service', () => {
           LastModified: new Date(),
         },
       ],
-    } as ListObjectsOutput);
+    });
 
     const items = await service.lists();
 
@@ -210,9 +157,9 @@ describe('S3Service', () => {
   });
 
   it('should throws exception if cannot list all files', async () => {
-    jest
-      .spyOn(fakeS3Instance, 'promise')
-      .mockRejectedValue(new Error('cannot list all files'));
+    fakeS3Client
+      .on(ListObjectsCommand)
+      .rejects(new Error('cannot list all files'));
 
     try {
       await service.lists();
@@ -222,31 +169,59 @@ describe('S3Service', () => {
   });
 
   it('get a file', async () => {
-    jest.spyOn(fakeS3Instance, 'promise').mockResolvedValue({
-      ContentLength: 1024,
-      ContentType: 'image/png',
-      Body: Buffer.from('fake.png'),
-    } as GetObjectOutput);
+    // create Stream from string
+    const stream = new Readable();
+    stream.push('hello world');
+    stream.push(null); // end of stream
 
-    const { key, contentLength, contentType, body } = await service.get(
-      'fake.png',
-    );
+    // wrap the Stream with SDK mixin
+    const sdkStream = sdkStreamMixin(stream);
+
+    fakeS3Client.on(GetObjectCommand).resolves({
+      Body: sdkStream,
+    });
+
+    const { key, contentLength, contentType, body } =
+      await service.get('fake.png');
 
     expect(key).toBe('fake.png');
     expect(contentLength).toBeDefined();
     expect(contentType).toBeDefined();
-    expect(body).toBeDefined();
+    expect(body).toBeInstanceOf(Buffer);
   });
 
   it('should throws exception if cannot get a file', async () => {
-    jest
-      .spyOn(fakeS3Instance, 'promise')
-      .mockRejectedValue(new Error('cannot get a file'));
+    fakeS3Client.on(GetObjectCommand).rejects(new Error('cannot get a file'));
 
     try {
       await service.get('fake.png');
     } catch (error) {
       expect(error.message).toBe('cannot get a file');
+    }
+  });
+
+  it('delete a file', async () => {
+    fakeS3Client.on(DeleteObjectCommand).resolves({
+      DeleteMarker: true,
+      VersionId: randomUUID(),
+    });
+
+    const { status, origin } = await service.delete('fake.png');
+
+    expect(status).toBeDefined();
+    expect(status).toBeTruthy();
+    expect(origin).toBeDefined();
+  });
+
+  it('should throws exception if cannot delete a file', async () => {
+    fakeS3Client
+      .on(DeleteObjectCommand)
+      .rejects(new Error('cannot delete a file'));
+
+    try {
+      await service.delete('fake.png');
+    } catch (error) {
+      expect(error.message).toBe('cannot delete a file');
     }
   });
 });

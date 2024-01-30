@@ -1,29 +1,34 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { S3_CONFIGURATION } from './constants';
 import {
   DeletedResponse,
-  Item,
   ListedResponse,
   Options,
   GotResponse,
   UploadedFile,
   UploadedResponse,
 } from './interfaces';
-import S3, {
-  DeleteObjectRequest,
-  GetObjectRequest,
-  ListObjectsRequest,
-  ManagedUpload,
+import { getFileExtension, hasExtension, trimLastSlash } from './helpers';
+import { v4 as uuid } from 'uuid';
+import {
+  CompleteMultipartUploadCommandOutput,
+  DeleteObjectCommand,
+  DeleteObjectCommandOutput,
+  GetObjectCommand,
+  GetObjectCommandOutput,
+  ListObjectsCommand,
+  ListObjectsCommandOutput,
   ObjectCannedACL,
-  ObjectKey,
-  PutObjectRequest,
-} from 'aws-sdk/clients/s3';
-import { hasExtension, trimLastSlash, getFileExtension } from './helpers';
-import { v4 as uuidv4 } from 'uuid';
+  PutObjectCommandInput,
+  S3Client,
+  _Object,
+} from '@aws-sdk/client-s3';
+import { Upload } from '@aws-sdk/lib-storage';
+import { Readable } from 'stream';
 
 @Injectable()
 export class S3Service {
-  private readonly client: S3;
+  private readonly client: S3Client;
   private bucket: string;
   private acl: ObjectCannedACL;
 
@@ -37,12 +42,16 @@ export class S3Service {
       endpoint = null,
     } = config;
 
-    this.client = new S3({ accessKeyId, secretAccessKey, region, endpoint });
+    this.client = new S3Client({
+      region,
+      credentials: { accessKeyId, secretAccessKey },
+      endpoint,
+    });
     this.bucket = bucket;
     this.acl = acl ?? 'public-read';
   }
 
-  public getClient(): S3 {
+  public getClient(): S3Client {
     return this.client;
   }
 
@@ -52,15 +61,21 @@ export class S3Service {
   ): Promise<UploadedResponse> {
     path = trimLastSlash(path);
 
-    const objectPayload: PutObjectRequest = {
+    let fileName = file.originalname;
+
+    if (path !== '') {
+      fileName = `${path}/${file.originalname}`;
+    }
+
+    const putObject: PutObjectCommandInput = {
       Bucket: this.bucket,
-      ACL: this.acl,
+      Key: hasExtension(path) ? path : fileName,
       Body: file.buffer,
-      Key: hasExtension(path) ? path : `${path}/${file.originalname}`,
       ContentType: file.mimetype,
+      ACL: this.acl,
     };
 
-    return await this.upload(objectPayload);
+    return await this.upload(putObject);
   }
 
   public async putAsUniqueName(
@@ -68,93 +83,109 @@ export class S3Service {
     folder?: string,
   ): Promise<UploadedResponse> {
     folder = trimLastSlash(folder);
-    const fileName = `${uuidv4()}.${getFileExtension(file)}`;
+    const fileName = `${uuid()}.${getFileExtension(file)}`;
 
-    const objectPayload: PutObjectRequest = {
+    const putObject: PutObjectCommandInput = {
       Bucket: this.bucket,
-      ACL: this.acl,
-      Body: file.buffer,
       Key: folder ? `${folder}/${fileName}` : fileName,
+      Body: file.buffer,
       ContentType: file.mimetype,
+      ACL: this.acl,
     };
 
-    return await this.upload(objectPayload);
+    return await this.upload(putObject);
   }
 
   private async upload(
-    objectPayload: PutObjectRequest,
+    putObject: PutObjectCommandInput,
   ): Promise<UploadedResponse> {
-    return await this.client
-      .upload(objectPayload)
-      .promise()
-      .then<UploadedResponse>((data: ManagedUpload.SendData) => {
-        return { url: data.Location, origin: data };
-      })
-      .catch((error) => {
-        throw error;
+    try {
+      const upload = new Upload({
+        client: this.client,
+        params: putObject,
       });
-  }
 
-  public async delete(key: ObjectKey): Promise<DeletedResponse> {
-    const objectPayload: DeleteObjectRequest = {
-      Bucket: this.bucket,
-      Key: key,
-    };
+      const uploaded: CompleteMultipartUploadCommandOutput =
+        await upload.done();
 
-    return await this.client
-      .deleteObject(objectPayload)
-      .promise()
-      .then<DeletedResponse>((data: S3.Types.DeleteObjectOutput) => {
-        return { status: true, origin: data };
-      })
-      .catch((error) => {
-        throw error;
-      });
+      return { url: uploaded.Location, origin: uploaded };
+    } catch (error) {
+      Logger.error(error);
+
+      throw error;
+    }
   }
 
   public async lists(folder?: string): Promise<ListedResponse> {
     folder = trimLastSlash(folder);
 
-    const objectParams: ListObjectsRequest = {
+    const objectParams = {
       Bucket: this.bucket,
       Prefix: folder,
     };
 
-    return await this.client
-      .listObjects(objectParams)
-      .promise()
-      .then<Item[]>((data: S3.Types.ListObjectsOutput) => {
-        return data.Contents.map<Item>((item: S3.Object) => ({
-          key: item.Key,
-          size: item.Size,
-          lastModified: item.LastModified,
-          bucket: data.Name,
-        }));
-      })
-      .catch((error) => {
-        throw error;
-      });
+    try {
+      const data: ListObjectsCommandOutput = await this.client.send(
+        new ListObjectsCommand(objectParams),
+      );
+
+      return data.Contents?.map((item: _Object) => ({
+        key: item.Key,
+        size: item.Size,
+        lastModified: item.LastModified,
+        bucket: this.bucket,
+      }));
+    } catch (error) {
+      Logger.error(error);
+
+      throw error;
+    }
   }
 
-  public async get(key: ObjectKey): Promise<GotResponse> {
-    const objectParams: GetObjectRequest = {
+  public async get(key: string): Promise<GotResponse> {
+    const objectParams = {
       Bucket: this.bucket,
       Key: key,
     };
 
-    return await this.client
-      .getObject(objectParams)
-      .promise()
-      .then<GotResponse>((data: S3.Types.GetObjectOutput) => {
-        return {
-          key,
-          contentLength: data.ContentLength,
-          contentType: data.ContentType,
-          body: data.Body,
-        };
-      })
-      .catch((error) => {
-        throw error;
-      });
+    try {
+      const data: GetObjectCommandOutput = await this.client.send(
+        new GetObjectCommand(objectParams),
+      );
+
+      // Convert the body stream to a Buffer
+      const stream = data.Body as Readable;
+      const bodyBuffer = Buffer.concat(await stream.toArray());
+
+      return {
+        key,
+        contentLength: data.ContentLength || 0,
+        contentType: data.ContentType || '',
+        body: bodyBuffer,
+      };
+    } catch (error) {
+      Logger.error(error);
+
+      throw error;
+    }
+  }
+
+  public async delete(key: string): Promise<DeletedResponse> {
+    const objectParams = {
+      Bucket: this.bucket,
+      Key: key,
+    };
+
+    try {
+      const data: DeleteObjectCommandOutput = await this.client.send(
+        new DeleteObjectCommand(objectParams),
+      );
+
+      return { status: true, origin: data };
+    } catch (error) {
+      Logger.error(error);
+
+      throw error;
+    }
   }
 }

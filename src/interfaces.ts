@@ -1,5 +1,9 @@
+import {
+  CompleteMultipartUploadCommandOutput,
+  DeleteObjectCommandOutput,
+  ObjectCannedACL,
+} from '@aws-sdk/client-s3';
 import { FactoryProvider, ModuleMetadata } from '@nestjs/common';
-import S3, { Body, ManagedUpload, ObjectCannedACL } from 'aws-sdk/clients/s3';
 
 export type Options = {
   accessKeyId: string;
@@ -9,30 +13,38 @@ export type Options = {
   acl?: ObjectCannedACL;
   endpoint?: string;
 };
+
 export type OptionsAsync = {
   useFactory: (...args: any[]) => Options | Promise<Options>;
 } & Pick<ModuleMetadata, 'imports'> &
   Pick<FactoryProvider, 'inject'>;
 
+export type ObjectAcl = ObjectCannedACL;
+
 export type UploadedFile = Express.Multer.File;
+
 export type UploadedResponse = {
   url: string;
-  origin: ManagedUpload.SendData;
+  origin: CompleteMultipartUploadCommandOutput;
 };
-export type DeletedResponse = {
-  status: boolean;
-  origin: S3.Types.DeleteObjectOutput;
-};
+
 export type Item = {
   key: string;
   size: number;
   lastModified: Date;
   bucket: string;
 };
+
 export type ListedResponse = Item[];
+
 export type GotResponse = {
   key: string;
   contentLength: number;
   contentType: string;
-  body: Body;
+  body: Buffer;
+};
+
+export type DeletedResponse = {
+  status: boolean;
+  origin: DeleteObjectCommandOutput;
 };
