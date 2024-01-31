@@ -16,10 +16,16 @@
 
 This is a simple wrapper of [Aws S3](https://github.com/aws/aws-sdk-js) client library for NestJS.
 
-### Installation
+### Installation (AWS-SDK V3)
 
 ```bash
-npm install --save @appotter/nestjs-s3 @aws-sdk/client-s3 @aws-sdk/lib-storage uuid
+npm install --save @appotter/nestjs-s3 @aws-sdk/client-s3 @aws-sdk/lib-storage @aws-sdk/s3-request-presigner uuid multer
+```
+
+### Installation (AWS-SDK V2) (Not recommended)
+
+```bash
+npm install --save @appotter/nestjs-s3@2.0.0 aws-sdk uuid multer
 ```
 
 ### Usage
@@ -131,6 +137,15 @@ export class YourService {
 
   // Also available with all S3 instance methods
   // this.s3Service.getClient().[all-method-of-S3-instance]();
+
+  // Signed Url (support V3 only)
+  async signedUrl(file: string): Promise<string> {
+    // expires in 1 hour
+    const signed = await this.s3Service.signedUrl(file, 60*60);
+
+    console.log(signed);
+    // https://test.s3.ap-southeast-1.amazonaws.com/fake.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=test%2F20240131%2Fap-southeast-1%2Fs3%2Faws4_request&X-Amz-Date=20240131T110201Z&X-Amz-Expires=60&X-Amz-Signature=25875526097b1f0182b27009005e70f9e92cd67294fb60583de9bd0b5f1cc5a7&X-Amz-SignedHeaders=host&x-id=GetObject
+  }
 }
 ```
 

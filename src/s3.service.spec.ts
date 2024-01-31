@@ -111,6 +111,8 @@ describe('S3Service', () => {
     } catch (error) {
       expect(error.message).toBe('cannot put a file');
     }
+
+    expect(Logger.error).toHaveBeenCalled();
   });
 
   it('put a file as unique name', async () => {
@@ -166,6 +168,8 @@ describe('S3Service', () => {
     } catch (error) {
       expect(error.message).toBe('cannot list all files');
     }
+
+    expect(Logger.error).toHaveBeenCalled();
   });
 
   it('get a file', async () => {
@@ -198,6 +202,8 @@ describe('S3Service', () => {
     } catch (error) {
       expect(error.message).toBe('cannot get a file');
     }
+
+    expect(Logger.error).toHaveBeenCalled();
   });
 
   it('delete a file', async () => {
@@ -222,6 +228,27 @@ describe('S3Service', () => {
       await service.delete('fake.png');
     } catch (error) {
       expect(error.message).toBe('cannot delete a file');
+    }
+
+    expect(Logger.error).toHaveBeenCalled();
+  });
+
+  it('signed url with 60 second', async () => {
+    const data = await service.signedUrl('fake.png', 60);
+
+    expect(data).toContain('X-Amz-Algorithm');
+    expect(data).toContain('X-Amz-Signature');
+  });
+
+  it('should throws exception if cannot signed url', async () => {
+    fakeS3Client.on(GetObjectCommand).rejects(new Error('cannot signed url'));
+
+    try {
+      await service.signedUrl('fake.png', 60);
+    } catch (error) {
+      console.log(error);
+
+      expect(error.message).toBe('cannot signed url');
     }
   });
 });
